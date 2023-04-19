@@ -1,8 +1,7 @@
 # Import Bleak
 # Create Timer
-import asyncio
 import datetime
-import time
+
 import pygame
 from bleak import BleakClient
 
@@ -80,55 +79,40 @@ start_time = None
 elapsed_time = datetime.timedelta()
 
 
-# Connect and send data
-async def send_data(data):
+# Connect to Bluetooth
+async def connect_bluetooth():
     async with BleakClient(BLE_ADDRESS) as client:
-        # Connect to the HM-10 Bluetooth device
+        # Connect to the Bluetooth device
         await client.connect()
-        print("Connected to HM-10")
 
-        # Convert the data to bytes and send it
-        data_bytes = data.encode("ASCII")
-        await client.write_gatt_char(BLE_UUID, data_bytes)
-        print(f"Sent data: {data}")
-
-        # Disconnect from the device
-        await client.disconnect()
-        print("Disconnected from HM-10")
+        # Return the client object so it can be used to send data later
+        return client
 
 
-# Function that receives data
-async def receive_data():
-    async with BleakClient(BLE_ADDRESS) as client:
-        # Connect to the HM-10 Bluetooth device
-        await client.connect()
-        print("Connected to HM-10")
-
-        # Read the data from the device
-        data_bytes = await client.read_gatt_char(BLE_UUID)
-        data_str = data_bytes.decode('utf-8')
-        print(f"Received data: {data_str}")
-
-        # Disconnect from the device
-        await client.disconnect()
-        print("Disconnected from HM-10")
-
-        # Return the received data
-        return data_str
+# Function that sends data using bluetooth
+async def send_data_bluetooth(client, data):
+    # Encode the data as ASCII
+    encoded_data = data.encode('ascii')
+    # Write data to the characteristic
+    await client.write_gatt_char(BLE_UUID, encoded_data, response=True)
 
 
-global counter
+# Receive data from bluetooth
+async def receive_data_bluetooth(client):
+    # Read data from the characteristic
+    data = await client.read_gatt_char(BLE_UUID)
+    # Decode the data from ASCII to a string
+    decoded_data = data.decode('ascii')
+
+    # Check if the received data matches "BLACK TAPE"
+    if decoded_data == "BLACK TAPE":
+        # Increment the counter by 1
+        counter += 1
+        print("Counter incremented to", counter)
+
+
+# define counter
 counter = 0
-
-
-async def process_data():
-    while True:
-        data = await receive_data()
-        if data == "BLACK TAPE":
-            counter += 1
-        else:
-            return 0
-
 
 # Run the game loop
 running = True
@@ -144,7 +128,7 @@ while running:
                 start_time = datetime.datetime.now()
             elif stop_button.collidepoint(event.pos):
                 # TURN OFF THROUGH BLUETOOTH
-                # asyncio.run(send_data("STOP"))
+                data = data.encode("ASCII")
                 # Stop button pressed, stop the timer
                 if start_time is not None:
                     elapsed_time = datetime.datetime.now() - start_time
